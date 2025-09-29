@@ -12,6 +12,8 @@ interface HeaderProps {
     onShowChangelog: () => void;
     onShowLog: () => void;
     onShowInfo: () => void;
+    apiKeySource: 'user' | 'studio';
+    onShowApiKeyModal: () => void;
     t: (key: string) => string;
 }
 
@@ -23,6 +25,8 @@ const Header: React.FC<HeaderProps> = ({
     onShowChangelog,
     onShowLog,
     onShowInfo,
+    apiKeySource,
+    onShowApiKeyModal,
     t
 }) => {
     return (
@@ -80,6 +84,16 @@ const Header: React.FC<HeaderProps> = ({
                     className="px-4 py-2 bg-white text-black font-bold rounded-full hover:bg-gray-200 transition-colors"
                 >
                     {t('donate.button')}
+                </button>
+                <button
+                    onClick={onShowApiKeyModal}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] text-gray-200 font-bold rounded-full hover:bg-[#383838] transition-colors"
+                    title={t('toolbar.right.change_api_key_title')}
+                >
+                    <span>{t('toolbar.right.api_key_label')}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${apiKeySource === 'user' ? 'bg-green-500/30 text-green-300' : 'bg-cyan-500/30 text-cyan-300'}`}>
+                        {apiKeySource === 'user' ? t('api_key_status.user') : t('api_key_status.studio')}
+                    </span>
                 </button>
                 <button
                     onClick={onShowHallOfFame}

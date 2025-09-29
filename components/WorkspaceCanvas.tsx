@@ -133,7 +133,8 @@ const WorkspaceCanvas = forwardRef<WorkspaceCanvasRef, WorkspaceCanvasProps>(({
         } else if (imgData.source instanceof File) {
             const existingUrl = objectUrlsRef.current.get(imgData.id);
             if (existingUrl) window.URL.revokeObjectURL(existingUrl);
-            const url = window.URL.createObjectURL(imgData.source);
+            // FIX: Cast return value of createObjectURL to string as it can be inferred as 'unknown'.
+            const url = window.URL.createObjectURL(imgData.source) as string;
             objectUrlsRef.current.set(imgData.id, url);
             img.src = url;
         }
@@ -1211,12 +1212,14 @@ const getResizeHandles = (image: WorkspaceImage): { corners: Record<string, Poin
 
 const getResizeHandleAtPosition = (pos: Point, image: WorkspaceImage, scale: number, allowSideHandles: boolean): ResizeHandle | null => {
   const handles = getResizeHandles(image); const margin = HANDLE_SIZE / scale;
-  for (const [key, p] of Object.entries(handles.corners) as [string, Point][]) {
-    if (Math.hypot(pos.x - p.x, pos.y - p.y) < margin) return key as ResizeHandle;
+  // FIX: Cast p to Point as it's inferred as unknown.
+  for (const [key, p] of Object.entries(handles.corners)) {
+    if (Math.hypot(pos.x - (p as Point).x, pos.y - (p as Point).y) < margin) return key as ResizeHandle;
   }
   if (allowSideHandles) {
-      for (const [key, p] of Object.entries(handles.sides) as [string, Point][]) {
-        if (Math.hypot(pos.x - p.x, pos.y - p.y) < margin) return key as ResizeHandle;
+      // FIX: Cast p to Point as it's inferred as unknown.
+      for (const [key, p] of Object.entries(handles.sides)) {
+        if (Math.hypot(pos.x - (p as Point).x, pos.y - (p as Point).y) < margin) return key as ResizeHandle;
       }
   }
   return null;

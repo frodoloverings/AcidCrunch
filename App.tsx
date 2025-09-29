@@ -17,6 +17,7 @@ import DonateModal from './components/DonateModal';
 import HallOfFameModal from './components/HallOfFameModal';
 import ChangelogModal from './components/ChangelogModal';
 import AsciiBackground from './components/AsciiBackground';
+import ApiKeyModal from './components/ApiKeyModal';
 
 
 interface ActionLogProps {
@@ -379,6 +380,21 @@ const App: React.FC = () => {
     const [isDonateVisible, setIsDonateVisible] = useState(false);
     const [isHallOfFameVisible, setIsHallOfFameVisible] = useState(false);
     const [isChangelogVisible, setIsChangelogVisible] = useState(false);
+    const [isApiKeyModalVisible, setIsApiKeyModalVisible] = useState(false);
+    const [apiKeySource, setApiKeySource] = useState<'user' | 'studio'>(() => {
+        try {
+            return localStorage.getItem('apiKey') ? 'user' : 'studio';
+        } catch {
+            return 'studio';
+        }
+    });
+    const [apiKey, setApiKey] = useState<string | null>(() => {
+        try {
+            return localStorage.getItem('apiKey');
+        } catch {
+            return null;
+        }
+    });
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [promptHistory, setPromptHistory] = useState<PromptHistoryEntry[]>([]);
     const [language, setLanguage] = useState<Language>('en');
@@ -399,7 +415,10 @@ const App: React.FC = () => {
         setEditorHistoryCounter(c => c + 1);
     }, []);
 
-    const ai = useMemo(() => new GoogleGenAI({ apiKey: process.env.API_KEY! }), []);
+    const ai = useMemo(() => {
+        const key = apiKeySource === 'user' && apiKey ? apiKey : process.env.API_KEY;
+        return new GoogleGenAI({ apiKey: key! });
+    }, [apiKey, apiKeySource]);
 
     const [activeTool, setActiveTool] = useState<Tool>(Tool.Hand);
     const [brushColor, setBrushColor] = useState('#EF4444'); // red-500
@@ -457,6 +476,27 @@ const App: React.FC = () => {
         });
     }, []);
     
+    const handleSaveApiKey = (key: string) => {
+        try {
+            localStorage.setItem('apiKey', key);
+            setApiKey(key);
+            setApiKeySource('user');
+        } catch (e) {
+            console.error("Failed to save API key to localStorage", e);
+            setError("Could not save API key. Local storage might be disabled.");
+        }
+    };
+
+    const handleUseStudioKey = () => {
+        try {
+            localStorage.removeItem('apiKey');
+            setApiKey(null);
+            setApiKeySource('studio');
+        } catch (e) {
+            console.error("Failed to remove API key from localStorage", e);
+        }
+    };
+
     const updateCanvasHistory = useCallback((newWorkspaceState: WorkspaceImage[]) => {
         const newHistory = canvasHistory.slice(0, canvasHistoryIndex + 1);
         newHistory.push(newWorkspaceState);
@@ -1783,6 +1823,8 @@ However, if the content of the image can't be determined, you are free to be cre
                     onShowChangelog={() => setIsChangelogVisible(true)}
                     onShowLog={() => setIsLogVisible(true)}
                     onShowInfo={() => setIsInfoVisible(true)}
+                    apiKeySource={apiKeySource}
+                    onShowApiKeyModal={() => setIsApiKeyModalVisible(true)}
                     t={t}
                 />
             )}
@@ -1930,6 +1972,15 @@ However, if the content of the image can't be determined, you are free to be cre
             <DonateModal
                 isOpen={isDonateVisible}
                 onClose={() => setIsDonateVisible(false)}
+                t={t}
+            />
+
+            <ApiKeyModal
+                isOpen={isApiKeyModalVisible}
+                onClose={() => setIsApiKeyModalVisible(false)}
+                onSave={handleSaveApiKey}
+                onUseStudioKey={handleUseStudioKey}
+                currentKeySource={apiKeySource}
                 t={t}
             />
 
