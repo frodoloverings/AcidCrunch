@@ -8,7 +8,7 @@ const CONFIG_BASE = {
   heatForce: 1.0,
   fadePerSec: 1.75,
   spawnJitter: 0.2,
-  hoverStart: '#ffffff',
+  hoverStart: '#fafafa',
   hoverEnd: '#383838',
   dotsColor: '#404040',
   fontScale: 0.31,
