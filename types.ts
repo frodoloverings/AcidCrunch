@@ -131,3 +131,17 @@ export interface WorkspaceImage {
   isReasoning?: boolean;
   generationContext?: GenerationContext;
 }
+
+export interface GoogleUserProfile {
+  name: string;
+  email: string;
+  picture?: string;
+}
+
+export interface GoogleDriveFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  modifiedTime?: string;
+  webViewLink?: string;
+}

@@ -20,11 +20,13 @@ import PresetsModal from './components/PresetsModal';
 import PromptEditorModal from './components/PromptEditorModal';
 import ApiKeyModal from './components/ApiKeyModal';
 import CameraModal from './components/CameraModal';
+import GoogleDriveModal from './components/GoogleDriveModal';
 
 import { useAppLog } from './hooks/useAppLog';
 import { useWorkspace } from './hooks/useWorkspace';
 import { useGenerationApi } from './hooks/useGenerationApi';
 import { useLiveChat } from './hooks/useLiveChat';
+import { useGoogleAuth } from './hooks/useGoogleAuth';
 
 
 const App: React.FC = () => {
@@ -45,6 +47,7 @@ const App: React.FC = () => {
     const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
     const [isApiKeyModalVisible, setIsApiKeyModalVisible] = useState(false);
     const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
+    const [isGoogleDriveModalOpen, setIsGoogleDriveModalOpen] = useState(false);
     const [language, setLanguage] = useState<Language>('ru');
     const [canvasViewTransform, setCanvasViewTransform] = useState({ scale: 1, panX: 0, panY: 0 });
     const [isDraggingOver, setIsDraggingOver] = useState(false);
@@ -67,6 +70,34 @@ const App: React.FC = () => {
 
     // Custom Hooks for major logic separation
     const { logs, promptHistory, addLog, addPromptToHistory, setLogs } = useAppLog();
+
+    const {
+        isReady: isGoogleAuthReady,
+        isAuthorized: isGoogleAuthorized,
+        user: googleUser,
+        driveFiles,
+        isLoadingDriveFiles,
+        error: googleAuthError,
+        signIn: signInWithGoogle,
+        signOut: signOutFromGoogle,
+        loadDriveFiles,
+        clearError: clearGoogleAuthError,
+    } = useGoogleAuth();
+
+    const handleOpenGoogleDrive = useCallback(() => {
+        clearGoogleAuthError();
+        setIsGoogleDriveModalOpen(true);
+    }, [clearGoogleAuthError]);
+
+    const handleGoogleSignIn = useCallback(() => {
+        signInWithGoogle();
+    }, [signInWithGoogle]);
+
+    const handleGoogleSignOut = useCallback(() => {
+        signOutFromGoogle();
+        setIsGoogleDriveModalOpen(false);
+        clearGoogleAuthError();
+    }, [signOutFromGoogle, clearGoogleAuthError]);
     
     // Editor Tool State with logging wrappers
     const [activeTool, _setActiveTool] = useState<Tool>(Tool.Selection);
@@ -96,27 +127,44 @@ const App: React.FC = () => {
     } = useWorkspace({ setLogs, setEditingImageId, workspaceCanvasRef, addLog });
     
     // Derived state for generation
+    const promptReferenceNumbers = useMemo(() => {
+        const matches = userPrompt.match(/@[1-9][0-9]*/g) || [];
+        return matches
+            .map(match => parseInt(match.substring(1), 10))
+            .filter(ref => !Number.isNaN(ref));
+    }, [userPrompt]);
+
+    const workspaceImageMaps = useMemo(() => {
+        const indexToId = new Map<number, number>();
+        const imageById = new Map<number, WorkspaceImage>();
+
+        workspaceImages.forEach((image, index) => {
+            indexToId.set(index + 1, image.id);
+            imageById.set(image.id, image);
+        });
+
+        return { indexToId, imageById };
+    }, [workspaceImages]);
+
     const combinedSelectedImageIds = useMemo(() => {
-        const referencedIds = (userPrompt.match(/@[1-9][0-9]*/g) || [])
-            .map(ref => parseInt(ref.substring(1)))
-            .filter(num => num > 0 && num <= workspaceImages.length)
-            .map(num => workspaceImages[num - 1].id);
+        const referencedIds = promptReferenceNumbers
+            .map(ref => workspaceImageMaps.indexToId.get(ref))
+            .filter((id): id is number => typeof id === 'number');
 
         const allIds = new Set([...manualSelectedImageIds, ...referencedIds]);
         return Array.from(allIds);
-    }, [userPrompt, workspaceImages, manualSelectedImageIds]);
+    }, [promptReferenceNumbers, manualSelectedImageIds, workspaceImageMaps]);
 
     const selectedImages = useMemo(() => {
-        const selectedMap = new Map(combinedSelectedImageIds.map(id => [id, workspaceImages.find(img => img.id === id)]));
-        return combinedSelectedImageIds.map(id => selectedMap.get(id)).filter((img): img is WorkspaceImage => !!img);
-    }, [combinedSelectedImageIds, workspaceImages]);
+        return combinedSelectedImageIds
+            .map(id => workspaceImageMaps.imageById.get(id))
+            .filter((img): img is WorkspaceImage => !!img);
+    }, [combinedSelectedImageIds, workspaceImageMaps]);
 
-    const [highlightedRefs, setHighlightedRefs] = useState<number[]>([]);
-    useEffect(() => {
-        const matches = userPrompt.match(/@[1-9][0-9]*/g) || [];
-        const refs = matches.map(m => parseInt(m.substring(1)));
-        setHighlightedRefs(Array.from(new Set(refs)));
-    }, [userPrompt]);
+    const highlightedRefs = useMemo(() => {
+        const validRefs = promptReferenceNumbers.filter(ref => workspaceImageMaps.indexToId.has(ref));
+        return Array.from(new Set(validRefs));
+    }, [promptReferenceNumbers, workspaceImageMaps]);
 
     useEffect(() => {
         try {
@@ -136,6 +184,12 @@ const App: React.FC = () => {
             setApiKeySource('studio');
         }
     }, [addLog]);
+
+    useEffect(() => {
+        if (isGoogleDriveModalOpen && isGoogleAuthorized) {
+            void loadDriveFiles();
+        }
+    }, [isGoogleDriveModalOpen, isGoogleAuthorized, loadDriveFiles]);
 
     const ai = useMemo(() => new GoogleGenAI({ apiKey }), [apiKey]);
 
@@ -186,7 +240,7 @@ const App: React.FC = () => {
         workspaceCanvasRef.current?.focusOnImage(imageId);
     }, []);
 
-    const handleDownload = async () => {
+    const handleDownload = useCallback(async () => {
         if (combinedSelectedImageIds.length !== 1) {
             setError(t('error.no_image_to_download'));
             return;
@@ -207,7 +261,7 @@ const App: React.FC = () => {
             console.error('Error downloading image:', e);
             setError('Не удалось скачать изображение.');
         });
-    };
+    }, [combinedSelectedImageIds, setError, t]);
     
     const handleUndo = useCallback(() => {
         addLog('action', `Undo triggered in ${viewMode} view`, null, true);
@@ -522,19 +576,25 @@ const App: React.FC = () => {
     return (
         <div className="h-screen w-screen fixed inset-0 overflow-hidden text-gray-200" onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop}>
             {viewMode === 'canvas' && (
-                <Header 
-                    language={language} 
-                    onLanguageChange={setLanguage} 
-                    onShowDonate={() => setIsDonateVisible(true)} 
-                    onShowHallOfFame={() => setIsHallOfFameVisible(true)} 
-                    onShowChangelog={() => setIsChangelogVisible(true)} 
-                    onShowLog={() => setIsLogVisible(true)} 
+                <Header
+                    language={language}
+                    onLanguageChange={setLanguage}
+                    onShowDonate={() => setIsDonateVisible(true)}
+                    onShowHallOfFame={() => setIsHallOfFameVisible(true)}
+                    onShowChangelog={() => setIsChangelogVisible(true)}
+                    onShowLog={() => setIsLogVisible(true)}
                     onShowInfo={() => setIsInfoVisible(true)}
                     onShowApiKeyModal={() => setIsApiKeyModalVisible(true)}
                     apiKeySource={apiKeySource}
                     areCornersRounded={areCornersRounded}
                     onCornersRoundedChange={setAreCornersRounded}
-                    t={t} 
+                    t={t}
+                    onShowGoogleDrive={handleOpenGoogleDrive}
+                    onGoogleSignIn={handleGoogleSignIn}
+                    onGoogleSignOut={handleGoogleSignOut}
+                    isGoogleAuthorized={isGoogleAuthorized}
+                    isGoogleReady={isGoogleAuthReady}
+                    googleUser={googleUser}
                 />
             )}
             
@@ -608,7 +668,7 @@ const App: React.FC = () => {
             <DonateModal isOpen={isDonateVisible} onClose={() => setIsDonateVisible(false)} t={t} />
             <HallOfFameModal isOpen={isHallOfFameVisible} onClose={() => setIsHallOfFameVisible(false)} t={t} />
             <ChangelogModal isOpen={isChangelogVisible} onClose={() => setIsChangelogVisible(false)} t={t} />
-            <ApiKeyModal 
+            <ApiKeyModal
                 isOpen={isApiKeyModalVisible}
                 onClose={() => setIsApiKeyModalVisible(false)}
                 onSave={handleSaveApiKey}
@@ -616,7 +676,24 @@ const App: React.FC = () => {
                 currentKeySource={apiKeySource}
                 t={t}
             />
-             <CameraModal 
+            <GoogleDriveModal
+                isOpen={isGoogleDriveModalOpen}
+                onClose={() => {
+                    clearGoogleAuthError();
+                    setIsGoogleDriveModalOpen(false);
+                }}
+                isAuthorized={isGoogleAuthorized}
+                isReady={isGoogleAuthReady}
+                user={googleUser}
+                driveFiles={driveFiles}
+                isLoading={isLoadingDriveFiles}
+                error={googleAuthError}
+                onSignIn={handleGoogleSignIn}
+                onSignOut={handleGoogleSignOut}
+                onRefresh={() => { void loadDriveFiles(); }}
+                onClearError={clearGoogleAuthError}
+            />
+             <CameraModal
                 isOpen={isCameraModalOpen}
                 onClose={() => setIsCameraModalOpen(false)}
                 onCapture={handleCapture}
