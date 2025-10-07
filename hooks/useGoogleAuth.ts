@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { GoogleDriveFile, GoogleUserProfile } from '../types';
 
-const GOOGLE_IDENTITY_SRC = 'https://accounts.google.com/gsi/client';
 const GOOGLE_API_SRC = 'https://apis.google.com/js/api.js';
 const DRIVE_DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
 const GOOGLE_SCOPES = 'openid email profile https://www.googleapis.com/auth/drive.file';
 
 declare global {
     interface Window {
-        google?: any;
         gapi?: any;
     }
 }
@@ -36,110 +34,119 @@ export const useGoogleAuth = (): UseGoogleAuthResult => {
     const [isLoadingDriveFiles, setIsLoadingDriveFiles] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const [isGisReady, setIsGisReady] = useState(false);
-    const [isGapiReady, setIsGapiReady] = useState(false);
+    const authInstanceRef = useRef<any>(null);
 
-    const tokenClientRef = useRef<any>(null);
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
     const apiKey = import.meta.env.VITE_GOOGLE_API_KEY as string | undefined;
 
     const clearError = useCallback(() => setError(null), []);
 
-    const fetchUserInfo = useCallback(async (token: string) => {
+    const resetAuthState = useCallback(() => {
+        setIsAuthorized(false);
+        setUser(null);
+        setAccessToken(null);
+        setDriveFiles([]);
         try {
-            const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            if (!response.ok) {
-                throw new Error(`Не удалось получить данные пользователя: ${response.statusText}`);
-            }
-
-            const data = await response.json();
-            setUser({
-                name: data.name ?? data.email ?? 'Google User',
-                email: data.email,
-                picture: data.picture,
-            });
-            setIsAuthorized(true);
-        } catch (err) {
-            console.error('Ошибка получения профиля Google:', err);
-            setError(err instanceof Error ? err.message : 'Неизвестная ошибка при получении профиля Google.');
-            setIsAuthorized(false);
-            setUser(null);
-            setAccessToken(null);
+            window.gapi?.client?.setToken?.(null);
+        } catch (setTokenError) {
+            console.error('Не удалось очистить токен Google API:', setTokenError);
         }
     }, []);
 
-    const initializeTokenClient = useCallback(() => {
-        if (tokenClientRef.current) {
-            setIsGisReady(true);
+    const syncUserFromGoogle = useCallback(async (): Promise<string | null> => {
+        const authInstance = authInstanceRef.current;
+        if (!authInstance) {
+            return null;
+        }
+
+        const googleUser = authInstance.currentUser?.get?.();
+        if (!googleUser || !googleUser.isSignedIn?.()) {
+            resetAuthState();
+            return null;
+        }
+
+        try {
+            const authResponse = await googleUser.reloadAuthResponse?.();
+            const token = authResponse?.access_token as string | undefined;
+            if (!token) {
+                throw new Error('Google не вернул access token.');
+            }
+
+            const profile = googleUser.getBasicProfile?.();
+            setUser({
+                name: profile?.getName?.() || profile?.getEmail?.() || 'Google User',
+                email: profile?.getEmail?.() || '',
+                picture: profile?.getImageUrl?.() || undefined,
+            });
+            setIsAuthorized(true);
+            setAccessToken(token);
+
+            try {
+                window.gapi?.client?.setToken?.({ access_token: token });
+            } catch (setTokenError) {
+                console.error('Не удалось передать токен в Google API клиент:', setTokenError);
+            }
+
+            return token;
+        } catch (err) {
+            console.error('Ошибка получения профиля Google:', err);
+            setError(err instanceof Error ? err.message : 'Не удалось получить данные профиля Google. Попробуйте снова.');
+            resetAuthState();
+            return null;
+        }
+    }, [resetAuthState]);
+
+    const handleAuthStatusChange = useCallback((signedIn: boolean) => {
+        if (signedIn) {
+            void syncUserFromGoogle();
+        } else {
+            resetAuthState();
+        }
+    }, [resetAuthState, syncUserFromGoogle]);
+
+    const initializeAuthClient = useCallback(() => {
+        if (!window.gapi?.load || authInstanceRef.current) {
+            if (authInstanceRef.current) {
+                setIsReady(true);
+                handleAuthStatusChange(authInstanceRef.current.isSignedIn?.get?.() ?? false);
+            }
             return;
         }
 
-        if (!window.google?.accounts?.oauth2 || !clientId) {
-            return;
-        }
-
-        tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
-            client_id: clientId,
-            scope: GOOGLE_SCOPES,
-            callback: async (tokenResponse: any) => {
-                if (tokenResponse?.error) {
-                    setError(`Ошибка авторизации Google: ${tokenResponse.error}`);
-                    return;
-                }
-
-                const token = tokenResponse?.access_token as string | undefined;
-                if (!token) {
-                    setError('Google не вернул access token.');
-                    return;
-                }
-
-                setAccessToken(token);
-                try {
-                    window.gapi?.client?.setToken?.({ access_token: token });
-                } catch (setTokenError) {
-                    console.error('Не удалось передать токен в Google API клиент:', setTokenError);
-                }
-                await fetchUserInfo(token);
-            },
-        });
-
-        setIsGisReady(true);
-    }, [clientId, fetchUserInfo]);
-
-    const initializeGapiClient = useCallback(() => {
-        if (isGapiReady || !window.gapi?.load || !apiKey) {
-            return;
-        }
-
-        window.gapi.load('client', async () => {
+        window.gapi.load('client:auth2', async () => {
             try {
                 await window.gapi.client.init({
                     apiKey,
+                    clientId,
                     discoveryDocs: [DRIVE_DISCOVERY_DOC],
+                    scope: GOOGLE_SCOPES,
                 });
-                setIsGapiReady(true);
+
+                authInstanceRef.current = window.gapi.auth2?.getAuthInstance?.();
+                if (!authInstanceRef.current) {
+                    throw new Error('Не удалось инициализировать Google Auth.');
+                }
+
+                authInstanceRef.current.isSignedIn?.listen(handleAuthStatusChange);
+                setIsReady(true);
+                handleAuthStatusChange(authInstanceRef.current.isSignedIn?.get?.() ?? false);
             } catch (err) {
                 console.error('Ошибка инициализации Google API:', err);
-                setError('Не удалось инициализировать клиент Google API.');
+                setError('Не удалось инициализировать Google API. Проверьте настройки OAuth.');
             }
         });
-    }, [apiKey, isGapiReady, setError]);
-
-    useEffect(() => {
-        setIsReady(isGisReady && isGapiReady);
-    }, [isGisReady, isGapiReady]);
+    }, [apiKey, clientId, handleAuthStatusChange]);
 
     useEffect(() => {
         if (!clientId) {
             setError('Не настроен VITE_GOOGLE_CLIENT_ID для авторизации через Google.');
+            setIsReady(false);
             return;
         }
 
         if (!apiKey) {
             setError('Не настроен VITE_GOOGLE_API_KEY для доступа к Google Drive.');
+            setIsReady(false);
             return;
         }
 
@@ -151,6 +158,7 @@ export const useGoogleAuth = (): UseGoogleAuthResult => {
             onError: () => void,
         ): { script: HTMLScriptElement | null; loadHandler: () => void; errorHandler: () => void } => {
             const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+
             const loadHandler = () => {
                 if (cancelled) return;
                 const element = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
@@ -159,6 +167,7 @@ export const useGoogleAuth = (): UseGoogleAuthResult => {
                 }
                 onLoad();
             };
+
             const errorHandler = () => {
                 if (cancelled) return;
                 onError();
@@ -186,65 +195,73 @@ export const useGoogleAuth = (): UseGoogleAuthResult => {
 
         const handleLoad = () => {
             if (cancelled) return;
-            initializeTokenClient();
+            initializeAuthClient();
         };
 
         const handleError = () => {
             if (cancelled) return;
-            setError('Не удалось загрузить сервисы авторизации Google.');
-        };
-
-        const gisScriptHandle = attachScript(GOOGLE_IDENTITY_SRC, handleLoad, handleError);
-
-        const handleGapiLoad = () => {
-            if (cancelled) return;
-            initializeGapiClient();
-        };
-
-        const handleGapiError = () => {
-            if (cancelled) return;
             setError('Не удалось загрузить клиент Google API.');
         };
 
-        const gapiScriptHandle = attachScript(GOOGLE_API_SRC, handleGapiLoad, handleGapiError);
+        const gapiScriptHandle = attachScript(GOOGLE_API_SRC, handleLoad, handleError);
 
         return () => {
             cancelled = true;
-            gisScriptHandle?.script?.removeEventListener('load', gisScriptHandle.loadHandler);
-            gisScriptHandle?.script?.removeEventListener('error', gisScriptHandle.errorHandler);
             gapiScriptHandle?.script?.removeEventListener('load', gapiScriptHandle.loadHandler);
             gapiScriptHandle?.script?.removeEventListener('error', gapiScriptHandle.errorHandler);
         };
-    }, [clientId, apiKey, initializeTokenClient, initializeGapiClient, setError]);
+    }, [clientId, apiKey, initializeAuthClient]);
 
-    const signIn = useCallback(() => {
-        if (!tokenClientRef.current || !isReady) {
-            setError('Сервис авторизации Google ещё не готов. Подождите немного и попробуйте снова.');
+    const performSignIn = useCallback(async () => {
+        const authInstance = authInstanceRef.current;
+        if (!authInstance || !isReady) {
+            setError('Сервисы Google ещё не готовы. Подождите немного и попробуйте снова.');
             return;
         }
 
         clearError();
-        tokenClientRef.current.requestAccessToken({ prompt: isAuthorized ? 'none' : 'consent' });
-    }, [clearError, isAuthorized, isReady]);
-
-    const signOut = useCallback(() => {
-        if (accessToken && window.google?.accounts?.oauth2?.revoke) {
-            window.google.accounts.oauth2.revoke(accessToken, () => {});
-        }
         try {
-            window.gapi?.client?.setToken?.(null);
-        } catch (setTokenError) {
-            console.error('Не удалось очистить токен Google API:', setTokenError);
+            await authInstance.signIn({ scope: GOOGLE_SCOPES, prompt: 'consent' });
+            await syncUserFromGoogle();
+        } catch (err: any) {
+            if (err?.error === 'popup_closed_by_user') {
+                return;
+            }
+            console.error('Ошибка авторизации Google:', err);
+            const message = err?.error_description || err?.details || (err instanceof Error ? err.message : null);
+            if (message) {
+                setError(`Ошибка авторизации Google: ${message}`);
+            } else {
+                setError('Не удалось выполнить вход через Google.');
+            }
         }
-        setAccessToken(null);
-        setIsAuthorized(false);
-        setUser(null);
-        setDriveFiles([]);
-    }, [accessToken]);
+    }, [clearError, isReady, syncUserFromGoogle]);
+
+    const performSignOut = useCallback(async () => {
+        const authInstance = authInstanceRef.current;
+        if (!authInstance) {
+            resetAuthState();
+            return;
+        }
+
+        try {
+            await authInstance.signOut();
+            await authInstance.disconnect?.();
+        } catch (err) {
+            console.error('Ошибка выхода из Google:', err);
+        } finally {
+            resetAuthState();
+        }
+    }, [resetAuthState]);
 
     const loadDriveFiles = useCallback(async () => {
-        if (!accessToken) {
+        if (!authInstanceRef.current || !authInstanceRef.current.isSignedIn?.get?.()) {
             setError('Сначала войдите через Google, чтобы увидеть Google Drive.');
+            return;
+        }
+
+        const token = await syncUserFromGoogle();
+        if (!token) {
             return;
         }
 
@@ -266,9 +283,7 @@ export const useGoogleAuth = (): UseGoogleAuthResult => {
             if (response.status !== 200) {
                 const message = response.result?.error?.message || 'Не удалось загрузить список файлов Google Drive.';
                 if (response.status === 401) {
-                    setIsAuthorized(false);
-                    setAccessToken(null);
-                    setUser(null);
+                    resetAuthState();
                 }
                 throw new Error(message);
             }
@@ -287,9 +302,7 @@ export const useGoogleAuth = (): UseGoogleAuthResult => {
             console.error('Ошибка при загрузке Google Drive:', err);
             const code = (err as any)?.status ?? (err as any)?.result?.error?.code;
             if (code === 401) {
-                setIsAuthorized(false);
-                setAccessToken(null);
-                setUser(null);
+                resetAuthState();
             }
             const message = (err as any)?.result?.error?.message ?? (err instanceof Error ? err.message : null) ??
                 'Неизвестная ошибка при обращении к Google Drive.';
@@ -297,14 +310,19 @@ export const useGoogleAuth = (): UseGoogleAuthResult => {
         } finally {
             setIsLoadingDriveFiles(false);
         }
-    }, [accessToken, clearError]);
+    }, [clearError, resetAuthState, syncUserFromGoogle]);
 
     const uploadFile = useCallback(async (
         file: Blob | File,
         options?: { name?: string; mimeType?: string; parents?: string[] },
     ) => {
-        if (!accessToken) {
+        if (!authInstanceRef.current || !authInstanceRef.current.isSignedIn?.get?.()) {
             setError('Сначала войдите через Google, чтобы загружать файлы на диск.');
+            return null;
+        }
+
+        const token = await syncUserFromGoogle();
+        if (!token) {
             return null;
         }
 
@@ -325,7 +343,7 @@ export const useGoogleAuth = (): UseGoogleAuthResult => {
         try {
             const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
                 method: 'POST',
-                headers: { Authorization: `Bearer ${accessToken}` },
+                headers: { Authorization: `Bearer ${token}` },
                 body: form,
             });
 
@@ -340,9 +358,7 @@ export const useGoogleAuth = (): UseGoogleAuthResult => {
                 }
 
                 if (response.status === 401) {
-                    setIsAuthorized(false);
-                    setAccessToken(null);
-                    setUser(null);
+                    resetAuthState();
                 }
 
                 throw new Error(message || 'Не удалось загрузить файл на Google Drive.');
@@ -369,7 +385,7 @@ export const useGoogleAuth = (): UseGoogleAuthResult => {
             setError(message);
             return null;
         }
-    }, [accessToken, setError]);
+    }, [resetAuthState, syncUserFromGoogle]);
 
     return {
         isReady,
@@ -378,8 +394,8 @@ export const useGoogleAuth = (): UseGoogleAuthResult => {
         driveFiles,
         isLoadingDriveFiles,
         error,
-        signIn,
-        signOut,
+        signIn: () => { void performSignIn(); },
+        signOut: () => { void performSignOut(); },
         loadDriveFiles,
         uploadFile,
         clearError,
