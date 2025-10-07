@@ -14,6 +14,7 @@ interface RightToolbarProps {
     onToolChange: (tool: Tool) => void;
     context: 'canvas' | 'editor';
     t: (key: string) => string;
+    canClear?: boolean;
 }
 
 const ToolButton: React.FC<{ name: string; iconName: string; isActive?: boolean; isDisabled?: boolean; onClick: () => void; hotkey?: string }> = ({ name, iconName, isActive, isDisabled, onClick, hotkey }) => (
@@ -22,7 +23,7 @@ const ToolButton: React.FC<{ name: string; iconName: string; isActive?: boolean;
             onClick={onClick}
             aria-label={name}
             disabled={isDisabled}
-            className={`p-2 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-[#d1fe17] w-full h-10 flex items-center justify-center ${isActive ? 'bg-[#d1fe17]/80 text-black' : 'hover:bg-white/10 text-gray-300'} disabled:text-gray-600 disabled:bg-transparent disabled:cursor-not-allowed`}
+            className={`p-2 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-[#d1fe17] w-full h-10 flex items-center justify-center ${isActive ? 'bg-[#d1fe17]/80 text-black' : 'hover:bg-white/10 text-gray-300'} disabled:text-gray-600 disabled:hover:bg-transparent disabled:cursor-not-allowed`}
         >
             <Icon name={iconName} className="w-6 h-6" />
         </button>
@@ -39,7 +40,8 @@ const RightToolbar: React.FC<RightToolbarProps> = ({
     activeTool,
     onToolChange,
     context,
-    t
+    t,
+    canClear = true,
 }) => {
     return (
         <div 
@@ -67,6 +69,7 @@ const RightToolbar: React.FC<RightToolbarProps> = ({
                 name={context === 'editor' ? t('toolbar.right.clear_sketches') : "Clear Canvas"} 
                 iconName="trash" 
                 onClick={onClear} 
+                isDisabled={!canClear}
             />
         </div>
     );

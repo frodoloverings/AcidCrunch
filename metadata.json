@@ -1,5 +1,8 @@
 {
-  "name": "BananaCrunch 2.0 FINAL",
+  "name": "BananaCrunch 2.2 FINAL",
   "description": "Features:\nOne-click upload\nDrag & drop an image or paste with Ctrl+V. Just click on the grid and the app will know you’re inside.\n\nEdit any way you want\nLayers, brush, lasso, text, arrows. You can pick a highlight color, and text and arrows always have a black outline—so labels stay visible even on solid backgrounds.\n\nFull step control\nUndo, redo, clear all edits—everything at hand.\n\nPresets (beta)\nReady-made universal prompts to get started. If something’s missing, you can ask the bot—the list keeps growing.\n\nAuto-translation to English\nThe AI understands better, and the results come out more accurate.\n\nAction transparency\nThe log button next to the trash shows exactly what was sent to the Gemini API and why a generation might have failed.\n\nGo back even after generation\nMade a move, generated—still can go back.\n\n⚡️ Works only on desktop. Runs on mobile, but editing is inconvenient.\n\n#nanobanana #gemini2.5flash",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
 }

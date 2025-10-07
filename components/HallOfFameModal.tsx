@@ -1,4 +1,5 @@
 
+
 import React, { useRef, useEffect, useState } from 'react';
 import Icon from './Icon';
 
@@ -71,12 +72,15 @@ const HallOfFameModal: React.FC<HallOfFameModalProps> = ({ isOpen, onClose, t })
     };
 
     const creator = { name: 'Волков Фёдор (aka AcidCrunch)', link: 'https://t.me/acidcrunch', desc: t('hall_of_fame.creator_desc') };
+    const secondPilots = [
+        { name: 'M I K H Ξ Y S', link: 'https://t.me/mouseinmilk', desc: t('hall_of_fame.mikheys_desc') },
+    ];
     const goldenBoys = [
         { name: 'Назар | Авито • Боты', link: 'https://t.me/naz_ai', desc: t('hall_of_fame.nazar_desc') },
     ];
     const upgraders = [
         { name: 'Islam Ibrakhimzhanov', link: 'https://t.me/shumbola_ai', desc: t('hall_of_fame.islam_desc') },
-        { name: 'M I K H Ξ Y S', link: 'https://t.me/mouseinmilk', desc: t('hall_of_fame.mikheys_desc') },
+        { name: 'Иван Филатов', link: 'https://t.me/neiro_secrets', desc: t('hall_of_fame.filatov_desc') },
     ];
     const boosters = [
         { name: 'Max Kim (Нейромания)', link: 'https://t.me/NeuromaniacMAX', desc: t('hall_of_fame.max_kim_desc') },
@@ -105,6 +109,21 @@ const HallOfFameModal: React.FC<HallOfFameModalProps> = ({ isOpen, onClose, t })
                                 isOpen={openEntry === creator.name}
                                 onToggle={() => handleToggle(creator.name)}
                             />
+                        </div>
+                    </div>
+                     <div>
+                        <h4 className="text-xl font-bold text-[#d1fe17] mb-3">{t('hall_of_fame.second_pilot')}</h4>
+                        <div className="space-y-2">
+                            {secondPilots.map(person => (
+                                 <FameEntry 
+                                    key={person.name}
+                                    name={person.name}
+                                    link={person.link}
+                                    desc={person.desc}
+                                    isOpen={openEntry === person.name}
+                                    onToggle={() => handleToggle(person.name)}
+                                />
+                            ))}
                         </div>
                     </div>
                     <div>

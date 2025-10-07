@@ -1,4 +1,5 @@
 
+
 import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { Tool } from '../types';
 import Icon from './Icon';
@@ -101,7 +102,7 @@ const LeftToolbar: React.FC<LeftToolbarProps> = ({
     const thumbPositionPercent = ((brushSize - min) / (max - min)) * 100;
 
     return (
-        <div className={`w-14 bg-[#1c1c1c] rounded-2xl p-2 shadow-2xl flex flex-col items-center gap-2 border border-[#262626]`}>
+        <div className="bg-[#1c1c1c] rounded-2xl p-2 shadow-2xl flex flex-row items-center justify-center gap-2 border border-[#262626] md:flex-col md:w-14">
             <ToolButton name={t('editor.confirm_edits')} iconName="check" isActive={true} onClick={onConfirmEdits} isDisabled={false} />
             <Tooltip text={t('toolbar.left.add_layer')} position="right">
                 <button
@@ -113,15 +114,15 @@ const LeftToolbar: React.FC<LeftToolbarProps> = ({
                 </button>
             </Tooltip>
 
-            <div className="w-full h-px bg-white/20 my-1"></div>
+            <div className="w-px h-full bg-white/20 mx-1 md:w-full md:h-px md:my-1"></div>
             
-            <div className={`flex flex-col items-center gap-2 w-full`}>
+            <div className={`flex flex-row md:flex-col items-center gap-2 w-full`}>
                 <ToolButton name={t('toolbar.left.brush')} iconName="brush" isActive={activeTool === Tool.Brush} onClick={() => onToolChange(Tool.Brush)} hotkey="B" />
                 <ToolButton name={t('toolbar.left.lasso')} iconName="lasso" isActive={activeTool === Tool.Lasso} onClick={() => onToolChange(Tool.Lasso)} hotkey="L" />
                 <ToolButton name={t('toolbar.left.arrow')} iconName="arrow" isActive={activeTool === Tool.Arrow} onClick={() => onToolChange(Tool.Arrow)} hotkey="A" />
                 <ToolButton name={t('toolbar.left.text')} iconName="text" isActive={activeTool === Tool.Text} onClick={() => onToolChange(Tool.Text)} hotkey="I" />
                 
-                <div className="w-full h-px bg-white/20 my-1"></div>
+                <div className="w-px h-full bg-white/20 mx-1 md:w-full md:h-px md:my-1"></div>
                 
                 <div 
                     onMouseDown={handleMouseDown}
@@ -138,7 +139,7 @@ const LeftToolbar: React.FC<LeftToolbarProps> = ({
                         <div className="w-6 h-6 rounded-full border-2 border-black/20 pointer-events-none" style={{ backgroundColor: brushColor }}></div>
                     </div>
 
-                    <div ref={sliderTrackRef} className="relative h-12 w-full flex justify-center">
+                    <div ref={sliderTrackRef} className="relative h-12 w-full justify-center hidden md:flex">
                         <div className="w-1.5 h-full bg-gray-500 rounded-full"></div>
                         <div 
                             className="absolute w-5 h-5 bg-[#d1fe17] rounded-full border-2 border-gray-900 pointer-events-none"

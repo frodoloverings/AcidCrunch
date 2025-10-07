@@ -1,10 +1,9 @@
-
 import React from 'react';
 
 interface TooltipProps {
     text: string;
     children: React.ReactNode;
-    position?: 'top' | 'right' | 'left';
+    position?: 'top' | 'right' | 'left' | 'bottom';
     className?: string;
 }
 
@@ -13,6 +12,8 @@ const Tooltip: React.FC<TooltipProps> = ({ text, children, position = 'right', c
         switch (position) {
             case 'top':
                 return 'bottom-full mb-2 left-1/2 -translate-x-1/2 origin-bottom';
+            case 'bottom':
+                return 'top-full mt-2 left-1/2 -translate-x-1/2 origin-top';
             case 'left':
                 return 'right-full mr-4 origin-right';
             case 'right':

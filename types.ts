@@ -19,6 +19,15 @@ export enum PresetTags {
     D3 = 'd3',
 }
 
+export enum LiveState {
+    IDLE = 'IDLE',
+    CONNECTING = 'CONNECTING',
+    LISTENING = 'LISTENING',
+    THINKING = 'THINKING',
+    SPEAKING = 'SPEAKING',
+    ERROR = 'ERROR',
+}
+
 
 export interface Point {
     x: number;
@@ -86,7 +95,7 @@ export interface PresetCategory {
 
 export interface LogEntry {
     timestamp: string;
-    type: 'action' | 'api_request' | 'api_response' | 'error';
+    type: 'action' | 'api_request' | 'api_response' | 'error' | 'ui' | 'state' | 'event';
     message: string;
     payload?: any;
 }
@@ -98,6 +107,12 @@ export interface PromptHistoryEntry {
 
 export interface AnnotationState {
     layers: AnyLayer[];
+}
+
+export interface GenerationContext {
+  prompt: string;
+  annotatedImageSources: { id: number; source: string }[];
+  type: 'generate' | 'reasoning' | 'enhance' | 'rtx' | 'mix' | 'outpainting' | 'text-to-image' | 'rep' | 'ref';
 }
 
 export interface WorkspaceImage {
@@ -114,4 +129,5 @@ export interface WorkspaceImage {
   annotationHistoryIndex: number;
   isLoading?: boolean;
   isReasoning?: boolean;
+  generationContext?: GenerationContext;
 }

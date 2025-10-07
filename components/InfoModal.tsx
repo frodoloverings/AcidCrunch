@@ -132,16 +132,17 @@ const InfoModal: React.FC<InfoModalProps> = ({ isOpen, onClose, t }) => {
                         <p className="text-gray-400 mb-4">{t('info_modal.hotkeys_desc')}</p>
                         
                         <h4 className="text-lg font-bold text-white mt-4 mb-2">{t('info_modal.hotkeys_generation_title')}</h4>
-                        <HotkeyEntry keys="Shift + Enter" description={t('info_modal.hotkey_generate')} />
+                        <HotkeyEntry keys="Ctrl/Cmd + Enter" description={t('info_modal.hotkey_generate')} />
+                        <HotkeyEntry keys="Ctrl/Cmd + R, К" description={t('info_modal.hotkey_regenerate')} />
                         <HotkeyEntry keys="R, К" description={t('info_modal.hotkey_reasoning')} />
                         <HotkeyEntry keys="E, У" description={t('info_modal.hotkey_enhance')} />
                         <HotkeyEntry keys="Shift + E, У" description={t('info_modal.hotkey_edit_image')} />
                         <HotkeyEntry keys="M, Ь" description={t('info_modal.hotkey_magic_prompt')} />
+                        <HotkeyEntry keys="B, И" description={t('info_modal.hotkey_bad_mode')} />
                         
                         <h4 className="text-lg font-bold text-white mt-4 mb-2">{t('info_modal.hotkeys_tools_title')}</h4>
                         <HotkeyEntry keys="V, М" description={t('info_modal.hotkey_tool_selection')} />
                         <HotkeyEntry keys="H, Р" description={t('info_modal.hotkey_tool_hand')} />
-                        <HotkeyEntry keys="B, И" description={t('info_modal.hotkey_tool_brush')} />
                         <HotkeyEntry keys="L, Д" description={t('info_modal.hotkey_tool_lasso')} />
                         <HotkeyEntry keys="A, Ф" description={t('info_modal.hotkey_tool_arrow')} />
                         <HotkeyEntry keys="I, Ш" description={t('info_modal.hotkey_tool_text')} />
@@ -151,9 +152,11 @@ const InfoModal: React.FC<InfoModalProps> = ({ isOpen, onClose, t }) => {
                         <HotkeyEntry keys="Ctrl/Cmd + Shift + Z, Ctrl+Y" description={t('info_modal.hotkey_redo')} />
                         <HotkeyEntry keys="Del / Backspace" description={t('info_modal.hotkey_delete')} />
                         <HotkeyEntry keys="+" description={t('info_modal.hotkey_add_image')} />
+                        <HotkeyEntry keys="C, С" description={t('info_modal.hotkey_camera')} />
                         <HotkeyEntry keys="P, З" description={t('info_modal.hotkey_presets')} />
                         <HotkeyEntry keys="T, Е" description={t('info_modal.hotkey_expand_prompt')} />
                         <HotkeyEntry keys="Shift + A, Ф" description={t('info_modal.hotkey_aspect_ratio')} />
+                        <HotkeyEntry keys="Ctrl/Cmd + Drag" description={t('info_modal.hotkey_proportional_resize')} />
                         <HotkeyEntry keys="Shift + S, Ы" description={t('info_modal.hotkey_download')} />
                         <HotkeyEntry keys="Spacebar (Hold)" description={t('info_modal.hotkey_temp_hand')} />
                         <HotkeyEntry keys="Esc" description={t('info_modal.hotkey_cancel_aspect')} />

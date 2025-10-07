@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle, useLayoutEffect } from 'react';
 import { Tool, Point, WorkspaceImage, AnnotationState, TextLayer, AnyLayer, ImageLayer, BrushLayer, LassoLayer, ArrowLayer } from '../types';
 import Icon from './Icon';
@@ -28,6 +27,7 @@ interface ImageEditorProps {
   onTextEditEnd: () => void;
   t: (key: string) => string;
   onHistoryUpdate: () => void;
+  areCornersRounded: boolean;
 }
 
 export interface ImageEditorRef {
@@ -39,6 +39,7 @@ export interface ImageEditorRef {
   canUndo: () => boolean;
   canRedo: () => boolean;
   saveAndExit: () => void;
+  deleteActiveLayer: () => void;
 }
 
 type EditorAction = 'draw' | 'pan' | 'moveLayer' | 'resizeLayer' | 'none';
@@ -51,7 +52,7 @@ type DraftAnnotation =
 
 
 const ImageEditor = forwardRef<ImageEditorRef, ImageEditorProps>(({
-  image, onSaveAndExit, tool, onToolChange, brushColor, brushSize, onTextEditEnd, t, onHistoryUpdate
+  image, onSaveAndExit, tool, onToolChange, brushColor, brushSize, onTextEditEnd, t, onHistoryUpdate, areCornersRounded
 }, ref) => {
   const displayCanvasRef = useRef<HTMLCanvasElement>(null);
   const fullCanvasRef = useRef<HTMLCanvasElement | OffscreenCanvas | null>(null);
@@ -80,9 +81,28 @@ const ImageEditor = forwardRef<ImageEditorRef, ImageEditorProps>(({
   const needsRender = useRef(true);
   const requestRender = useCallback(() => { needsRender.current = true; }, []);
 
+  const isPinchingRef = useRef(false);
+  const lastPinchStateRef = useRef({ distance: 0, scale: 1, panX: 0, panY: 0, midpoint: { x: 0, y: 0 } });
+
     useEffect(() => {
         onHistoryUpdate();
     }, [historyIndex, onHistoryUpdate]);
+
+    // This effect ensures the canvas redraws when its container size changes.
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+
+        const resizeObserver = new ResizeObserver(() => {
+            requestRender();
+        });
+
+        resizeObserver.observe(container);
+
+        return () => {
+            resizeObserver.disconnect();
+        };
+    }, [requestRender]);
 
   const fitAndCenter = useCallback(() => {
     const container = containerRef.current;
@@ -191,6 +211,15 @@ const ImageEditor = forwardRef<ImageEditorRef, ImageEditorProps>(({
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
   }, [history, historyIndex]);
+
+  const deleteActiveLayer = useCallback(() => {
+    if (!activeLayerId) return;
+
+    const newLayers = localLayers.filter(layer => layer.id !== activeLayerId);
+    setLocalLayers(newLayers);
+    setActiveLayerId(null);
+    takeSnapshot(newLayers);
+  }, [activeLayerId, localLayers, takeSnapshot]);
   
   const redrawFullCanvas = useCallback(() => {
     const fullCanvas = fullCanvasRef.current;
@@ -261,7 +290,8 @@ const ImageEditor = forwardRef<ImageEditorRef, ImageEditorProps>(({
             annotationHistoryIndex: historyIndex,
         });
     },
-  }), [fitAndCenter, history, historyIndex, image, onSaveAndExit, localLayers, takeSnapshot]);
+    deleteActiveLayer,
+  }), [fitAndCenter, history, historyIndex, image, onSaveAndExit, localLayers, takeSnapshot, deleteActiveLayer]);
 
   const renderDisplayCanvas = useCallback(() => {
     const displayCanvas = displayCanvasRef.current;
@@ -292,6 +322,81 @@ const ImageEditor = forwardRef<ImageEditorRef, ImageEditorProps>(({
     ctx.restore();
   }, [viewTransform]);
 
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+
+        const getDistance = (t1: Touch, t2: Touch) => Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        const getMidpoint = (t1: Touch, t2: Touch) => ({ x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 });
+
+        const handleTouchStart = (e: TouchEvent) => {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                actionRef.current = 'none'; // Prevent other actions
+                isPinchingRef.current = true;
+                const distance = getDistance(e.touches[0], e.touches[1]);
+                const midpoint = getMidpoint(e.touches[0], e.touches[1]);
+                lastPinchStateRef.current = {
+                    distance,
+                    scale: viewTransform.scale,
+                    panX: viewTransform.panX,
+                    panY: viewTransform.panY,
+                    midpoint
+                };
+            }
+        };
+
+        const handleTouchMove = (e: TouchEvent) => {
+            if (e.touches.length === 2 && isPinchingRef.current) {
+                e.preventDefault();
+                const { distance: lastDist, scale: lastScale, panX: lastPanX, panY: lastPanY, midpoint: lastMidpoint } = lastPinchStateRef.current;
+                
+                const newDist = getDistance(e.touches[0], e.touches[1]);
+                if (lastDist === 0) return; // Avoid division by zero
+                const scaleFactor = newDist / lastDist;
+                const newScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, lastScale * scaleFactor));
+
+                const newMidpoint = getMidpoint(e.touches[0], e.touches[1]);
+                const rect = container.getBoundingClientRect();
+                
+                // Pan from zoom
+                const worldX = (lastMidpoint.x - rect.left - lastPanX) / lastScale;
+                const worldY = (lastMidpoint.y - rect.top - lastPanY) / lastScale;
+                const newPanXFromZoom = (lastMidpoint.x - rect.left) - worldX * newScale;
+                const newPanYFromZoom = (lastMidpoint.y - rect.top) - worldY * newScale;
+                
+                // Pan from finger movement
+                const panDx = newMidpoint.x - lastMidpoint.x;
+                const panDy = newMidpoint.y - lastMidpoint.y;
+
+                setViewTransform({
+                    scale: newScale,
+                    panX: newPanXFromZoom + panDx,
+                    panY: newPanYFromZoom + panDy
+                });
+                requestRender();
+            }
+        };
+
+        const handleTouchEnd = (e: TouchEvent) => {
+            if (e.touches.length < 2) {
+                isPinchingRef.current = false;
+            }
+        };
+
+        container.addEventListener('touchstart', handleTouchStart, { passive: false });
+        container.addEventListener('touchmove', handleTouchMove, { passive: false });
+        container.addEventListener('touchend', handleTouchEnd);
+        container.addEventListener('touchcancel', handleTouchEnd);
+
+        return () => {
+            container.removeEventListener('touchstart', handleTouchStart);
+            container.removeEventListener('touchmove', handleTouchMove);
+            container.removeEventListener('touchend', handleTouchEnd);
+            container.removeEventListener('touchcancel', handleTouchEnd);
+        };
+    }, [viewTransform, requestRender]);
+
   useEffect(() => {
     const tick = () => {
       if (needsRender.current) {
@@ -317,6 +422,41 @@ const ImageEditor = forwardRef<ImageEditorRef, ImageEditorProps>(({
     return { x: worldX, y: worldY };
   };
 
+  const updateCursor = useCallback((pos: Point) => {
+    const isPanningTool = isSpacebarDown || tool === Tool.Hand;
+    let newCursor = 'crosshair';
+
+    if (isPanningTool) {
+        newCursor = 'grab';
+    } else if (tool === Tool.Selection) {
+        const activeLayer = activeLayerId ? localLayers.find(l => l.id === activeLayerId) : undefined;
+        if (activeLayer) {
+            // Prevent resize cursor for annotation layers
+            if (activeLayer.type !== Tool.Brush && activeLayer.type !== Tool.Lasso && activeLayer.type !== Tool.Arrow) {
+                const handle = getHandleAtPosition(pos, activeLayer, viewTransform.scale);
+                if (handle) {
+                    newCursor = (handle === 'tl' || handle === 'br') ? 'nwse-resize' : 'nesw-resize';
+                } else if (getLayerAtPosition(pos, [activeLayer])) {
+                    newCursor = 'move';
+                }
+            } else if (getLayerAtPosition(pos, [activeLayer])) {
+                newCursor = 'move';
+            }
+        }
+        if (newCursor === 'crosshair' && getLayerAtPosition(pos, localLayers)) {
+            newCursor = 'pointer';
+        }
+    } else {
+        if (tool === Tool.Lasso) newCursor = 'crosshair';
+        else if (tool === Tool.Brush || tool === Tool.Arrow) newCursor = 'none';
+        else if (tool === Tool.Text) newCursor = 'text';
+    }
+
+    if (cursorStyle !== newCursor) {
+        setCursorStyle(newCursor);
+    }
+}, [isSpacebarDown, tool, activeLayerId, localLayers, viewTransform.scale, cursorStyle]);
+
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     const canvas = displayCanvasRef.current;
@@ -339,6 +479,15 @@ const ImageEditor = forwardRef<ImageEditorRef, ImageEditorProps>(({
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    if (isPinchingRef.current) return;
+    if (e.button === 1) { // Middle mouse button
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+        actionRef.current = 'pan';
+        panStartRef.current = { x: e.clientX, y: e.clientY, panX: viewTransform.panX, panY: viewTransform.panY };
+        setCursorStyle('grabbing');
+        return;
+    }
+
     if (e.button !== 0 || textInput) return;
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     const pos = getMousePos(e);
@@ -386,41 +535,11 @@ const ImageEditor = forwardRef<ImageEditorRef, ImageEditorProps>(({
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
+    if (isPinchingRef.current) return;
     const pos = getMousePos(e);
 
     if (actionRef.current === 'none') {
-        const isPanningTool = isSpacebarDown || tool === Tool.Hand;
-        let newCursor = 'crosshair';
-
-        if (isPanningTool) {
-            newCursor = 'grab';
-        } else if (tool === Tool.Selection) {
-            const activeLayer = activeLayerId ? localLayers.find(l => l.id === activeLayerId) : undefined;
-            if (activeLayer) {
-                // Prevent resize cursor for annotation layers
-                if (activeLayer.type !== Tool.Brush && activeLayer.type !== Tool.Lasso && activeLayer.type !== Tool.Arrow) {
-                    const handle = getHandleAtPosition(pos, activeLayer, viewTransform.scale);
-                    if (handle) {
-                        newCursor = (handle === 'tl' || handle === 'br') ? 'nwse-resize' : 'nesw-resize';
-                    } else if (getLayerAtPosition(pos, [activeLayer])) {
-                        newCursor = 'move';
-                    }
-                } else if (getLayerAtPosition(pos, [activeLayer])) {
-                    newCursor = 'move';
-                }
-            }
-            if (newCursor === 'crosshair' && getLayerAtPosition(pos, localLayers)) {
-                newCursor = 'pointer';
-            }
-        } else {
-            if (tool === Tool.Lasso) newCursor = 'crosshair';
-            else if (tool === Tool.Brush || tool === Tool.Arrow) newCursor = 'none';
-            else if (tool === Tool.Text) newCursor = 'text';
-        }
-
-        if (cursorStyle !== newCursor) {
-            setCursorStyle(newCursor);
-        }
+        updateCursor(pos);
     }
     
     const preview = cursorPreviewRef.current;
@@ -477,6 +596,7 @@ const ImageEditor = forwardRef<ImageEditorRef, ImageEditorProps>(({
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
+    if (isPinchingRef.current) return;
     (e.target as HTMLElement).releasePointerCapture(e.pointerId);
     
     let newLayers: AnyLayer[] | null = null;
@@ -499,6 +619,7 @@ const ImageEditor = forwardRef<ImageEditorRef, ImageEditorProps>(({
     actionStartRef.current = null;
     panStartRef.current = null;
     redrawFullCanvas(); // Final draw for selection box etc.
+    updateCursor(getMousePos(e));
   };
 
   const handleCancelText = () => {
@@ -626,12 +747,13 @@ const ImageEditor = forwardRef<ImageEditorRef, ImageEditorProps>(({
   return (
     <div 
         ref={containerRef} 
-        className="relative w-full h-full overflow-hidden bg-[#1c1c1c] rounded-2xl border-2 border-gray-700"
+        className={`relative w-full h-full overflow-hidden bg-[#1c1c1c] border-2 border-gray-700 transition-[border-radius] duration-500 ease-in-out ${areCornersRounded ? 'rounded-2xl' : 'rounded-none'}`}
         style={{ touchAction: 'none', cursor: cursorStyle }}
         onWheel={handleWheel}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onMouseDown={(e) => { if (e.button === 1) e.preventDefault(); }}
         onDoubleClick={fitAndCenter}
     >
       <canvas ref={displayCanvasRef} className="w-full h-full" />

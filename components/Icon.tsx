@@ -20,7 +20,7 @@ const Icon: React.FC<IconProps> = ({ name, className = "w-6 h-6" }) => {
         undo: <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />,
         redo: <path strokeLinecap="round" strokeLinejoin="round" d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3" />,
         trash: <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.134-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.067-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />,
-        key: <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a9 9 0 11-18 0 9 9 0 0118 0zM12.982 17.25a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />,
+        key: <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m-3-3a3 3 0 0 0-3 3m3-3-3.375 3.375M9 15l-3 3m0 0l-3-3m3 3V9.75M9 15h12M9 15a6 6 0 0 1-6-6V9a6 6 0 0 1 6-6h1.5" />,
         lasso: <><path strokeLinecap="round" strokeLinejoin="round" d="M17.218 10.372a6.75 6.75 0 11-10.836-5.495 6.75 6.75 0 0110.836 5.495z" /> <path strokeLinecap="round" strokeLinejoin="round" d="M12.982 17.25a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" /></>,
         download: <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />,
         layer: <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />,
@@ -54,7 +54,13 @@ const Icon: React.FC<IconProps> = ({ name, className = "w-6 h-6" }) => {
         info: <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />,
         'swap-horizontal': <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h18m-7.5-14L21 7.5m0 0L16.5 12M21 7.5H3" />,
         'arrow-up': <path strokeLinecap="round" strokeLinejoin="round" d="M12 19.5v-15m0 0l-6.75 6.75M12 4.5l6.75 6.75" />,
+        crop: <><path d="M6.13 1 6 16a2 2 0 0 0 2 2h15"/><path d="M1 6.13 16 6a2 2 0 0 1 2 2v15"/></>,
         'sparkle-star': <path fill="currentColor" strokeWidth="0" d="M12 2.25L14.25 9.75L21.75 12L14.25 14.25L12 21.75L9.75 14.25L2.25 12L9.75 9.75Z" />,
+        'corner-sharp': <path strokeLinecap="square" d="M20 4v16H4" />,
+        'corner-rounded': <path d="M20 4v12a4 4 0 0 1-4 4H4" />,
+        'refresh': <><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></>,
+        mic: <><path strokeLinecap="round" strokeLinejoin="round" d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19 10v2a7 7 0 0 1-14 0v-2" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 19v4M8 23h8" /></>,
+        'mic-off': <><path strokeLinecap="round" strokeLinejoin="round" d="M15.486 19.485a.75.75 0 01-1.06 0l-12-12a.75.75 0 011.06-1.06l12 12a.75.75 0 010 1.06z" /><path strokeLinecap="round" strokeLinejoin="round" d="M17.025 10.2a7.5 7.5 0 0 1-12.05 0" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 1a3 3 0 0 0-3 3v.75m6 0V4a3 3 0 0 0-3-3z" /><path strokeLinecap="round" strokeLinejoin="round" d="M8.343 15.343A5.98 5.98 0 0 1 12 18a5.98 5.98 0 0 1 3.657-2.657" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 19v4M8 23h8" /></>,
     };
 
     return (

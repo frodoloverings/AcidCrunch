@@ -27,14 +27,16 @@ const ChangeLogEntry: React.FC<{
             <Icon name={isOpen ? 'chevron-up' : 'chevron-down'} className="w-6 h-6 transition-transform" />
         </button>
         <div
-            className="overflow-hidden transition-all duration-300 ease-in-out"
-            style={{ maxHeight: isOpen ? '1000px' : '0px' }}
+            className="grid transition-[grid-template-rows] duration-300 ease-in-out"
+            style={{ gridTemplateRows: isOpen ? '1fr' : '0fr' }}
         >
-            <div className="pt-4 pl-4 ml-4 border-l-2 border-gray-700">
-                <div className="space-y-3 text-gray-300">
-                    {features.trim().split('\n').map((line, index) => (
-                        <p key={index}>{line.trim().replace(/^- /, '')}</p>
-                    ))}
+            <div className="overflow-hidden">
+                <div className="pt-4 pl-4 ml-4 border-l-2 border-gray-700">
+                    <div className="space-y-3 text-gray-300">
+                        {features.trim().split('\n').map((line, index) => (
+                            <p key={index}>{line.trim().replace(/^- /, '')}</p>
+                        ))}
+                    </div>
                 </div>
             </div>
         </div>
@@ -43,7 +45,7 @@ const ChangeLogEntry: React.FC<{
 
 const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose, t }) => {
     const modalRef = useRef<HTMLDivElement>(null);
-    const [openVersion, setOpenVersion] = useState('v2_0');
+    const [openVersion, setOpenVersion] = useState('v2_2');
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -65,7 +67,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose, t }) =
         setOpenVersion(prev => (prev === version ? null : version));
     };
 
-    const versions = ['v2_0', 'v1_5_1', 'v1_5', 'v1_4', 'v1_3', 'v1_2', 'v1_1', 'v1_0'];
+    const versions = ['v2_2', 'v2_0', 'v1_5_1', 'v1_5', 'v1_4', 'v1_3', 'v1_2', 'v1_1', 'v1_0'];
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
