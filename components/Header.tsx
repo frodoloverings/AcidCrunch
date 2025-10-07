@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Language } from '../i18n';
 import Icon from './Icon';
 import Tooltip from './Tooltip';
+import { GoogleUserProfile } from '../types';
 
 interface HeaderProps {
     language: Language;
@@ -18,11 +19,18 @@ interface HeaderProps {
     areCornersRounded: boolean;
     onCornersRoundedChange: (rounded: boolean) => void;
     t: (key: string) => string;
+    onShowGoogleDrive: () => void;
+    onGoogleSignIn: () => void;
+    onGoogleSignOut: () => void;
+    isGoogleAuthorized: boolean;
+    isGoogleReady: boolean;
+    googleUser: GoogleUserProfile | null;
 }
 
 const DesktopMenu: React.FC<Omit<HeaderProps, 'onShowLog'> & { onClose: () => void }> = ({
     onShowHallOfFame, onShowChangelog, onShowInfo, onShowApiKeyModal, onShowDonate,
-    apiKeySource, t, onClose, language, onLanguageChange, areCornersRounded, onCornersRoundedChange
+    apiKeySource, t, onClose, language, onLanguageChange, areCornersRounded, onCornersRoundedChange,
+    onShowGoogleDrive, onGoogleSignIn, onGoogleSignOut, isGoogleAuthorized, isGoogleReady, googleUser
 }) => {
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -64,6 +72,46 @@ const DesktopMenu: React.FC<Omit<HeaderProps, 'onShowLog'> & { onClose: () => vo
                     {t(apiKeySource === 'user' ? 'api_key_modal.user_key_display' : 'api_key_modal.studio_key_display')}
                 </span>
             </button>
+            <div className="mt-1 rounded-xl border border-white/5 bg-black/30 p-3">
+                {isGoogleAuthorized && googleUser ? (
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                            {googleUser.picture && (
+                                <img src={googleUser.picture} alt={googleUser.name} className="h-10 w-10 rounded-full border border-white/10 object-cover" />
+                            )}
+                            <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-white">{googleUser.name}</p>
+                                <p className="truncate text-xs text-gray-400">{googleUser.email}</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => handleButtonClick(onShowGoogleDrive)}
+                                className="flex-1 rounded-full bg-[#d1fe17] px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-lime-300"
+                            >
+                                Открыть Drive
+                            </button>
+                            <button
+                                onClick={() => handleButtonClick(onGoogleSignOut)}
+                                className="rounded-full border border-red-500/40 px-4 py-2 text-sm font-semibold text-red-300 transition-colors hover:bg-red-500/20"
+                            >
+                                Выйти
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <button
+                        onClick={() => {
+                            if (!isGoogleReady) return;
+                            handleButtonClick(onGoogleSignIn);
+                        }}
+                        disabled={!isGoogleReady}
+                        className="w-full rounded-full bg-[#d1fe17] px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-lime-300 disabled:cursor-not-allowed disabled:bg-gray-500 disabled:text-gray-200"
+                    >
+                        {isGoogleReady ? 'Войти через Google' : 'Google загружается...'}
+                    </button>
+                )}
+            </div>
             <div className="w-full h-px bg-white/10 my-1"></div>
 
              <a href="https://t.me/acidcrunch" target="_blank" rel="noopener noreferrer" 
@@ -126,7 +174,16 @@ const DesktopMenu: React.FC<Omit<HeaderProps, 'onShowLog'> & { onClose: () => vo
 };
 
 const Header: React.FC<HeaderProps> = (props) => {
-    const { onShowLog, t, onShowDonate } = props;
+    const {
+        onShowLog,
+        t,
+        onShowDonate,
+        isGoogleAuthorized,
+        onShowGoogleDrive,
+        onGoogleSignIn,
+        googleUser,
+        isGoogleReady,
+    } = props;
     const [isDesktopMenuOpen, setIsDesktopMenuOpen] = useState(false);
 
     return (
@@ -154,6 +211,21 @@ const Header: React.FC<HeaderProps> = (props) => {
 
                 {/* Right Side */}
                 <div className="flex items-center gap-2">
+                    {isGoogleAuthorized && googleUser?.picture && (
+                        <img
+                            src={googleUser.picture}
+                            alt={googleUser.name}
+                            className="hidden h-10 w-10 rounded-full border border-white/10 object-cover md:block"
+                        />
+                    )}
+                    {isGoogleAuthorized && (
+                        <button
+                            onClick={onShowGoogleDrive}
+                            className="bg-[#d1fe17] text-black font-bold py-2 px-4 rounded-full hover:bg-lime-300 transition-colors"
+                        >
+                            Google Drive
+                        </button>
+                    )}
                     <button onClick={onShowLog} className="bg-[#2a2a2a] text-gray-200 font-bold py-2 px-4 rounded-full hover:bg-[#383838] transition-colors">
                         {t('toolbar.right.log')}
                     </button>

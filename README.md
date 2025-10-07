@@ -16,5 +16,8 @@ View your app in AI Studio: https://ai.studio/apps/drive/1aE0OvyJWU3HRMRebyxICHr
 1. Install dependencies:
    `npm install`
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+3. Configure Google integration variables in `.env.local`:
+   - `VITE_GOOGLE_CLIENT_ID` — OAuth 2.0 Client ID from Google Cloud Console
+   - `VITE_GOOGLE_API_KEY` — API Key with the Google Drive API enabled
+4. Run the app:
    `npm run dev`
